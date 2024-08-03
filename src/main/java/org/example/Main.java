@@ -114,18 +114,11 @@ public class Main {
                     }
 
                     System.out.println("Please enter the rAddress of the destination account: ");
-                    String destinationAccount = null;
-                    try {
-                        destinationAccount = scanner.nextLine();
-                    } catch (Exception e) {
-                        System.out.println("Error reading input: " + e.getMessage());
-                        return;
-                    }
+                    Address destinationAccount = inputAddress();
 
-                    if(!isValidXrpAddress(destinationAccount)){
-                        System.out.println("Invalid rAddress format");
-                        break;
-                    } else if(Objects.equals(destinationAccount, selectedAccount.getrAddress().toString())){
+                    if(destinationAccount == null){ break;}
+
+                    if(Objects.equals(destinationAccount, selectedAccount.getrAddress())){
                         System.out.println("You cannot send a payment to yourself");
                         break;
                     }
@@ -137,26 +130,14 @@ public class Main {
                         continue;
                     }
 
-                    // Check reserve balance
-                    XrpCurrencyAmount baseReserveInDrops = validatedLedgerOptional.get().reserveBaseXrp();
-                    Long numberOfOwnedObjects = selectedAccountInfos.accountData().ownerCount().longValue();
+                    BigDecimal accountBalance = testnetClient
+                            .getAccountXrpBalance(selectedAccount.getrAddress()
+                                    , FunctionParameters.AVAILABLE_BALANCE);
 
-                    BigDecimal amountReserve;
-                    BigDecimal reserveIncrementInDrops = validatedLedgerOptional.get().reserveIncXrp().toXrp();
-                    if(numberOfOwnedObjects < 1){
-                        amountReserve = baseReserveInDrops.toXrp();
-                    } else {
-                        // Caculate account amount reserve
-                        amountReserve = reserveIncrementInDrops
-                                .multiply(BigDecimal.valueOf(numberOfOwnedObjects))
-                                        .add(baseReserveInDrops.toXrp());
-                    }
-
-                    BigDecimal accountBalance = selectedAccountInfos.accountData().balance().toXrp().subtract(amountReserve);
                     System.out.println("Please enter the amount to send (Available balance : " + accountBalance +
                             " XRP):");
 
-                    BigDecimal amountToSend = null;
+                    BigDecimal amountToSend = BigDecimal.ZERO;
                     String input = scanner.next();
                     scanner.nextLine();
                     try {
@@ -179,7 +160,7 @@ public class Main {
                                 ". The total amount (including fees) exceeds the available balance.");
                     } else {
                         try {
-                            testnetClient.sendPayment(selectedAccount, Address.of(destinationAccount), amountInDrops);
+                            testnetClient.sendPayment(selectedAccount, destinationAccount, amountInDrops);
                         } catch (JsonRpcClientErrorException e) {
                             System.out.println("Error while sending payment: " + e.getMessage());
                         }
@@ -223,7 +204,6 @@ public class Main {
                         }
                     }
 
-
                     UnsignedInteger accountSequence = selectedAccountInfos.accountData().sequence();
                     LedgerIndex latestLedgerIndex = testnetClient.getLatestLedgerIndex();
 
@@ -235,20 +215,11 @@ public class Main {
                     }
 
                     System.out.println("Please enter the rAddress of the deleted account funds receiver: ");
-                    String destinationAccount = null;
-                    try {
-                        destinationAccount = scanner.nextLine();
-                    } catch (Exception e) {
-                        System.out.println("Error reading input: " + e.getMessage());
-                        return;
-                    }
+                    Address destinationAccount = inputAddress();
+                    if(destinationAccount == null){break;}
 
-                    if(!isValidXrpAddress(destinationAccount)){
-                        System.out.println("Invalid rAddress format");
-                        break;
-                    }
 
-                    testnetClient.deleteAccount(selectedAccount, Address.of(destinationAccount), testnetClient.getBaseIncrementXrp());
+                    testnetClient.deleteAccount(selectedAccount, destinationAccount, testnetClient.getBaseIncrementXrp());
                 }
 
                 case VIEW_MY_ACCOUNTS -> {
@@ -258,12 +229,23 @@ public class Main {
                         for(int i = 1; i <= accountList.getNumberOfAccounts(); ++i){
                             currentAccount = accountList.getAccount(i - 1);
                             try{
-                                System.out.println("Account " + i + " | (" +
-                                        testnetClient.getAccountBalance(currentAccount.getrAddress())
+                                System.out.println("Account " + i + " | (Total Balance: " +
+                                        testnetClient.getAccountXrpBalance(currentAccount.getrAddress()
+                                                ,FunctionParameters.TOTAL_BALANCE)
                                         + " XRP): " + currentAccount.getrAddress());
                             } catch (JsonRpcClientErrorException e){
-                                System.out.println(currentAccount.getrAddress() + " is not activated !");
+                                System.out.println("Account " + i + " | " + currentAccount.getrAddress()
+                                        + " is not activated !");
                             }
+                        }
+
+                        choice = scanner.nextInt();;
+
+                        switch (choice){
+                            case 1 -> {
+
+                            }
+                            default -> throw new IllegalStateException("Unexpected value: " + choice);
                         }
                     } else {
                         System.out.println("You don't have an account, please create one !");
@@ -292,7 +274,6 @@ public class Main {
         }
 
     public static xrplAccount selectAccount(ArrayList<xrplAccount> accounts, int numberOfAccounts) {
-
         Scanner selectScanner = new Scanner(System.in);
         int choice = 0;
         do {
@@ -310,6 +291,23 @@ public class Main {
         } while (choice < 1 || choice > numberOfAccounts);
 
         return accounts.get(choice - 1);
+    }
+
+    public static Address inputAddress() {
+        String inputAddr = null;
+        Scanner addessScanner = new Scanner(System.in);
+        try {
+            inputAddr = addessScanner.nextLine();
+            if(!isValidXrpAddress(inputAddr)){
+                System.out.println("Invalid address format.");
+                return null;
+            }
+        } catch (Exception e) {
+            System.out.println("Error reading input: " + e.getMessage());
+            return null;
+        }
+
+        return Address.of(inputAddr);
     }
 
 }

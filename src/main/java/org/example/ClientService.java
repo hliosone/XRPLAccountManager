@@ -64,9 +64,40 @@ public class ClientService {
         return accountInfoResult;
     }
 
-    public BigDecimal getAccountBalance(Address accountAddress) throws JsonRpcClientErrorException {
+    public BigDecimal getAccountXrpBalance(Address accountAddress, FunctionParameters type) throws JsonRpcClientErrorException {
+        if(!(type instanceof FunctionParameters)){
+            System.out.println("Invalid balance type !");
+            return null;
+        }
         AccountInfoResult infos = getAccountInfos(accountAddress);
-        return infos.accountData().balance().toXrp();
+        ServerInfoResult rippledServer = getServerInfo();
+
+        if(type == FunctionParameters.TOTAL_BALANCE){
+            return infos.accountData().balance().toXrp();
+        }
+
+        // Check reserve balance
+        XrpCurrencyAmount baseReserveInDrops = rippledServer.info().validatedLedger().get().reserveBaseXrp();
+        Long numberOfOwnedObjects = infos.accountData().ownerCount().longValue();
+
+        BigDecimal amountReserve;
+        BigDecimal reserveIncrementInDrops = rippledServer.info().validatedLedger().get().reserveIncXrp().toXrp();
+        if(numberOfOwnedObjects < 1){
+            amountReserve = baseReserveInDrops.toXrp();
+        } else {
+            // Caculate account amount reserve
+            amountReserve = reserveIncrementInDrops
+                    .multiply(BigDecimal.valueOf(numberOfOwnedObjects))
+                    .add(baseReserveInDrops.toXrp());
+        }
+
+        if(type == FunctionParameters.RESERVED_BALANCE){
+            return amountReserve;
+        } else if(type == FunctionParameters.AVAILABLE_BALANCE){
+            return infos.accountData().balance().toXrp().subtract(amountReserve);
+        } else {
+            return null;
+        }
     }
 
     public LedgerIndex getLatestLedgerIndex() throws JsonRpcClientErrorException {
