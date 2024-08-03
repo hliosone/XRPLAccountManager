@@ -36,43 +36,9 @@ public class Main {
         MenuOptions userChoice = MenuOptions.VIEW_MY_ACCOUNTS;
         int choice = 0;
         do {
-            System.out.println("Choose an option:");
-            System.out.println("1. Create Account");
-            System.out.println("2. Fund Account");
-            System.out.println("3. Send Payment");
-            System.out.println("4. Delete Account");
-            System.out.println("5. View My Account(s)");
-            System.out.println("6. View On-Chain Account");
-            System.out.println("7. Quit Program");
-
+            MenuOptions.printMenuOptions();
             choice = scanner.nextInt();
-
-            switch (choice) {
-                case 1:
-                    userChoice = MenuOptions.CREATE_ACCOUNT;
-                    break;
-                case 2:
-                    userChoice = MenuOptions.FUND_ACCOUNT;
-                    break;
-                case 3:
-                    userChoice = MenuOptions.SEND_PAYMENT;
-                    break;
-                case 4:
-                    userChoice = MenuOptions.DELETE_ACCOUNT;
-                    break;
-                case 5:
-                    userChoice = MenuOptions.VIEW_MY_ACCOUNTS;
-                    break;
-                case 6:
-                    userChoice = MenuOptions.VIEW_CHAIN_ACCOUNT;
-                    break;
-                case 7:
-                    userChoice = MenuOptions.QUIT_PROGRAM;
-                    break;
-                default:
-                    System.out.println("Invalid choice, please try again.");
-                    continue;
-            }
+            userChoice = MenuOptions.getMenuOptions(choice);
 
             switch (userChoice) {
                 case CREATE_ACCOUNT -> {
@@ -225,25 +191,32 @@ public class Main {
                 case VIEW_MY_ACCOUNTS -> {
                     System.out.println("View My Accounts choice !");
                     if(accountList.getNumberOfAccounts() > 0){
-                        xrplAccount currentAccount;
-                        for(int i = 1; i <= accountList.getNumberOfAccounts(); ++i){
-                            currentAccount = accountList.getAccount(i - 1);
-                            try{
-                                System.out.println("Account " + i + " | (Total Balance: " +
-                                        testnetClient.getAccountXrpBalance(currentAccount.getrAddress()
-                                                ,FunctionParameters.TOTAL_BALANCE)
-                                        + " XRP): " + currentAccount.getrAddress());
-                            } catch (JsonRpcClientErrorException e){
-                                System.out.println("Account " + i + " | " + currentAccount.getrAddress()
-                                        + " is not activated !");
-                            }
-                        }
+                        AccountInfosOptions.printAccountInfosMenu();
+                        choice = scanner.nextInt();
 
-                        choice = scanner.nextInt();;
+                        xrplAccount infosSelectedAccount = selectAccount(accountList.getAccounts()
+                                , accountList.getNumberOfAccounts());
 
                         switch (choice){
-                            case 1 -> {
 
+                            case 1 -> {
+                                System.out.println("Choose the balance type:");
+                                FunctionParameters.printBalanceTypes();
+                                int balanceChoice = scanner.nextInt();
+                                FunctionParameters balanceType = FunctionParameters.getBalanceOptions(balanceChoice);
+                                System.out.println( FunctionParameters.getBalanceText(balanceChoice) + " "
+                                        + testnetClient.getAccountXrpBalance(infosSelectedAccount.getrAddress()
+                                        ,balanceType));
+                                break;
+                            }
+                            case 3 -> {
+//                                Address activator = testnetClient
+//                                            .getAccountActivator(infosSelectedAccount.getrAddress());
+//                                if(activator.value().isEmpty()){
+//                                    System.out.println("Problem occurred, couldn't find activator !");
+//                                } else {
+//                                    System.out.println("Account activated by : " + activator);
+//                                }
                             }
                             default -> throw new IllegalStateException("Unexpected value: " + choice);
                         }
