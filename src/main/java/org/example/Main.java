@@ -210,13 +210,13 @@ public class Main {
                                 break;
                             }
                             case 3 -> {
-//                                Address activator = testnetClient
-//                                            .getAccountActivator(infosSelectedAccount.getrAddress());
-//                                if(activator.value().isEmpty()){
-//                                    System.out.println("Problem occurred, couldn't find activator !");
-//                                } else {
-//                                    System.out.println("Account activated by : " + activator);
-//                                }
+                                Address activator = testnetClient
+                                            .getAccountActivator(infosSelectedAccount.getrAddress());
+                                if(activator == null){
+                                    System.out.println("The account is not active !");
+                                } else {
+                                    System.out.println("Account activated by : " + activator);
+                                }
                             }
                             default -> throw new IllegalStateException("Unexpected value: " + choice);
                         }

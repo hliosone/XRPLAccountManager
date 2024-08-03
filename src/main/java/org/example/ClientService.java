@@ -13,11 +13,9 @@ import org.xrpl.xrpl4j.crypto.keys.PrivateKey;
 import org.xrpl.xrpl4j.crypto.signing.SignatureService;
 import org.xrpl.xrpl4j.crypto.signing.SingleSignedTransaction;
 import org.xrpl.xrpl4j.crypto.signing.bc.BcSignatureService;
-import org.xrpl.xrpl4j.model.client.accounts.AccountInfoRequestParams;
-import org.xrpl.xrpl4j.model.client.accounts.AccountInfoResult;
-import org.xrpl.xrpl4j.model.client.accounts.AccountTransactionsRequestParams;
-import org.xrpl.xrpl4j.model.client.accounts.AccountTransactionsResult;
+import org.xrpl.xrpl4j.model.client.accounts.*;
 import org.xrpl.xrpl4j.model.client.common.LedgerIndex;
+import org.xrpl.xrpl4j.model.client.common.LedgerIndexBound;
 import org.xrpl.xrpl4j.model.client.common.LedgerSpecifier;
 import org.xrpl.xrpl4j.model.client.fees.FeeResult;
 import org.xrpl.xrpl4j.model.client.ledger.LedgerRequestParams;
@@ -31,7 +29,9 @@ import org.xrpl.xrpl4j.model.transactions.*;
 
 import java.math.BigDecimal;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 public class ClientService {
     private final XrplClient rippledClient;
@@ -67,22 +67,17 @@ public class ClientService {
     }
 
     public Address getAccountActivator(Address accountAddress) throws JsonRpcClientErrorException {
-
         AccountTransactionsRequestParams requestParams = AccountTransactionsRequestParams
-                .builder(LedgerSpecifier.VALIDATED)
+                .unboundedBuilder()
                 .account(accountAddress)
                 .build();
-
         AccountTransactionsResult transactionsResult = this.rippledClient.accountTransactions(requestParams);
-
-        Optional<Address> activator = transactionsResult.transactions().stream()
-                .filter(txResult -> txResult.resultTransaction() instanceof Payment)
-                .map(txResult -> (Payment) txResult.resultTransaction())
-                .filter(payment -> payment.destination().equals(accountAddress))
-                .findFirst() // Obtenir la première transaction valide
-                .map(payment -> payment.account());
-
-        return activator.orElse(null);
+        List<AccountTransactionsTransactionResult<? extends Transaction>> txList = transactionsResult.transactions();
+        if(!txList.isEmpty()){
+            return(txList.get(txList.size() - 1).resultTransaction().transaction().account());
+        } else {
+            return null;
+        }
     }
 
     public BigDecimal getAccountXrpBalance(Address accountAddress, FunctionParameters type) throws JsonRpcClientErrorException {
