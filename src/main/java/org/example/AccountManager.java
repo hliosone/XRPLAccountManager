@@ -1,5 +1,6 @@
 package org.example;
 
+import org.xrpl.xrpl4j.crypto.keys.KeyPair;
 import org.xrpl.xrpl4j.model.transactions.Address;
 
 import java.util.ArrayList;
@@ -9,6 +10,11 @@ public class AccountManager {
 
     public void addAccount() {
         xrplAccount newAcc = new xrplAccount();
+        managedAccounts.add(newAcc);
+    }
+
+    public void addAccount(KeyPair importedKeyPair) {
+        xrplAccount newAcc = new xrplAccount(importedKeyPair);
         managedAccounts.add(newAcc);
     }
 

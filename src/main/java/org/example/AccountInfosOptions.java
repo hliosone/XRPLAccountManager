@@ -1,5 +1,11 @@
 package org.example;
 
+import org.xrpl.xrpl4j.client.JsonRpcClientErrorException;
+import org.xrpl.xrpl4j.model.transactions.Address;
+
+import java.util.Random;
+import java.util.Scanner;
+
 public enum AccountInfosOptions {
     ACCOUNT_BALANCE(1),
     ACCOUNT_TRANSACTIONS(2),
@@ -18,7 +24,32 @@ public enum AccountInfosOptions {
         System.out.println("4. Quit account menu");
     }
 
-    public int getValue() {
-        return value;
+    public static void processAccountInfosOptions(ClientService client, Address accountAddress, int choice)
+            throws JsonRpcClientErrorException {
+        Scanner scanner = new Scanner(System.in);
+        switch (choice) {
+            case 1 -> {
+                System.out.println("Choose the balance type:");
+                FunctionParameters.printBalanceTypes();
+                int balanceChoice = scanner.nextInt();
+                FunctionParameters balanceType = FunctionParameters.getBalanceOptions(balanceChoice);
+                System.out.println(FunctionParameters.getBalanceText(balanceChoice) + " "
+                        + client.getAccountXrpBalance(accountAddress
+                        , balanceType) + " XRP");
+            }
+            case 3 -> {
+                Address activator = client
+                        .getAccountActivator(accountAddress);
+                if(activator == null){
+                    System.out.println("The account is not active !");
+                } else {
+                    System.out.println("Account activated by : " + activator);
+                }
+            }
+            default -> {
+
+            }
+        }
     }
 }
+

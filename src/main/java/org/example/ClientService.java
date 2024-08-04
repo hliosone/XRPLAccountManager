@@ -63,7 +63,14 @@ public class ClientService {
                 .account(accountAddress)
                 .ledgerSpecifier(LedgerSpecifier.VALIDATED)
                 .build();
-        return rippledClient.accountInfo(requestParams);
+        AccountInfoResult selectedAccountInfos = null;
+        try {
+            selectedAccountInfos = this.rippledClient.accountInfo(requestParams);
+        } catch (JsonRpcClientErrorException e) {
+            System.out.println("Error while fetching account data: " + e.getMessage());
+            return null;
+        }
+        return selectedAccountInfos;
     }
 
     public Address getAccountActivator(Address accountAddress) throws JsonRpcClientErrorException {
