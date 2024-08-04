@@ -232,6 +232,7 @@ public class Main {
                 }
                 default -> throw new IllegalStateException("Unexpected value: " + userChoice);
             }
+            System.out.println();
         }while (userChoice != MenuOptions.QUIT_PROGRAM);
         System.exit(0);
     }

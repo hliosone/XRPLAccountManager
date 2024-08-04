@@ -3,10 +3,7 @@ package org.example;
 import org.xrpl.xrpl4j.client.JsonRpcClientErrorException;
 import org.xrpl.xrpl4j.model.client.accounts.AccountTransactionsResult;
 import org.xrpl.xrpl4j.model.client.accounts.AccountTransactionsTransactionResult;
-import org.xrpl.xrpl4j.model.transactions.AccountDelete;
-import org.xrpl.xrpl4j.model.transactions.Address;
-import org.xrpl.xrpl4j.model.transactions.Payment;
-import org.xrpl.xrpl4j.model.transactions.Transaction;
+import org.xrpl.xrpl4j.model.transactions.*;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -46,6 +43,17 @@ public enum TransactionsUtility {
         };
     }
 
+    public static void printTransaction(TransactionsUtility type, Transaction tx){
+            if (type == TransactionsUtility.PAYMENT_TX) {
+                Payment paymentTx = (Payment) tx;
+                XrpCurrencyAmount amountInDrops = (XrpCurrencyAmount) paymentTx.amount();
+                System.out.println(paymentTx.account() + " sent " + amountInDrops.toXrp() + " XRP to " + paymentTx.destination());
+            } else if (type == TransactionsUtility.DELETE_TX){
+                AccountDelete deleteTx = (AccountDelete) tx;
+                System.out.println(deleteTx.account() + " performed an account deletion");
+            }
+    }
+
     public static void processInfosTransaction(ClientService rippledClient, Address accountAddress, int numberOfTxs,
                                                TransactionsUtility type) throws JsonRpcClientErrorException {
         AccountTransactionsResult transactionsResult = rippledClient.getAccountTransactions(accountAddress);
@@ -66,9 +74,7 @@ public enum TransactionsUtility {
                     .collect(Collectors.toList());
 
             if(!limitedTxList.isEmpty()){
-                for (Transaction tx : limitedTxList) {
-                    System.out.println(tx);
-                }
+                for (Transaction tx : limitedTxList) { printTransaction(type, tx); }
             } else {
                 System.out.println("No " + type + " transactions found for " + accountAddress);
             }
