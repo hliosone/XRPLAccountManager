@@ -1,11 +1,37 @@
 package org.example;
 
+import java.security.*;
+
+import org.bouncycastle.util.encoders.Hex;
+import org.xrpl.xrpl4j.codec.addresses.KeyType;
+import org.xrpl.xrpl4j.crypto.core.keys.*;
+import org.xrpl.xrpl4j.crypto.core.*;
+import org.xrpl.xrpl4j.crypto.keys.ImmutableKeyPair;
+import org.xrpl.xrpl4j.crypto.keys.KeyPair;
+import org.xrpl.xrpl4j.crypto.keys.PrivateKey;
+import org.xrpl.xrpl4j.crypto.keys.PublicKey;
+import org.xrpl.xrpl4j.keypairs.KeyPairService;
+import org.xrpl.xrpl4j.model.transactions.Address;
+import org.xrpl.xrpl4j.wallet.Wallet;
+import org.xrpl.xrpl4j.wallet.WalletFactory;
+import org.xrpl.xrpl4j.codec.addresses.UnsignedByteArray;
+import org.xrpl.xrpl4j.crypto.core.keys.KeyPairService.*;
+
+import org.xrpl.xrpl4j.crypto.keys.KeyPair;
+import org.xrpl.xrpl4j.crypto.keys.PrivateKey;
+import org.xrpl.xrpl4j.crypto.keys.PublicKey;
+
+
+import java.util.*;
+
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.primitives.UnsignedInteger;
 import com.google.common.primitives.UnsignedLong;
 import okhttp3.HttpUrl;
 import org.xrpl.xrpl4j.client.JsonRpcClientErrorException;
 import org.xrpl.xrpl4j.client.XrplClient;
+import org.xrpl.xrpl4j.codec.addresses.UnsignedByteArray;
 import org.xrpl.xrpl4j.model.client.accounts.*;
 import org.xrpl.xrpl4j.model.client.common.LedgerIndex;
 import org.xrpl.xrpl4j.model.client.common.LedgerSpecifier;
@@ -18,23 +44,21 @@ import org.xrpl.xrpl4j.model.client.accounts.AccountInfoRequestParams;
 import org.xrpl.xrpl4j.model.client.accounts.AccountInfoResult;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.Objects;
-import java.util.Optional;
 import java.util.Scanner;
+
+import static ch.qos.logback.core.encoder.ByteArrayUtil.hexStringToByteArray;
 
 public class Main {
     public static void main(String[] args) throws JsonRpcClientErrorException, InterruptedException, JsonProcessingException {
-
         // Construct a network client
-        XrplClient xrplClient = new XrplClient(HttpUrl.get("https://s.altnet.rippletest.net:51234/"));
+        //XrplClient xrplClient = new XrplClient(HttpUrl.get("https://s.altnet.rippletest.net:51234/"));
         ClientService testnetClient = new ClientService("https://s.altnet.rippletest.net:51234/");
         FaucetService rippleFaucet = new FaucetService("https://faucet.altnet.rippletest.net");
 
         AccountManager accountList = new AccountManager();
         Scanner scanner = new Scanner(System.in);
-        MenuOptions userChoice = MenuOptions.VIEW_MY_ACCOUNTS;
-        int choice = 0;
+        MenuOptions userChoice;
+        int choice;
         do {
             MenuOptions.printMenuOptions();
             choice = scanner.nextInt();
@@ -45,11 +69,26 @@ public class Main {
                     System.out.println("Create Account choice !");
                     accountList.addAccount();
                 }
+                case IMPORT_ACCOUNT -> {
+                    System.out.println("Import Account choice !");
+                    scanner.nextLine();
+                    System.out.print("Enter Private Key : ");
+                    String privateKeyInput = scanner.nextLine();
+
+                    try {
+                        org.xrpl.xrpl4j.crypto.keys.Seed seed = org.xrpl.xrpl4j.crypto.keys.Seed.fromBase58EncodedSecret
+                                ((org.xrpl.xrpl4j.crypto.keys.Base58EncodedSecret.of(privateKeyInput)));
+                        KeyPair keyPair = seed.deriveKeyPair();
+                        accountList.addAccount(keyPair);
+                    } catch (org.xrpl.xrpl4j.codec.addresses.exceptions.EncodingFormatException e) {
+                        System.err.println("Key format error : " + e.getMessage());
+                    }
+                }
                 case FUND_ACCOUNT -> {
                     System.out.println("Fund account choice !");
                     System.out.println("Choose the account to fund !");
                     if(accountList.getNumberOfAccounts() > 0){
-                        xrplAccount selectedAccount = selectAccount(accountList.getAccounts(),
+                        xrplAccount selectedAccount = LedgerUtility.selectAccount(accountList.getAccounts(),
                                 accountList.getNumberOfAccounts());
                         System.out.println("Funding the account ...");
                         rippleFaucet.fundWallet(selectedAccount.getrAddress());
@@ -61,33 +100,28 @@ public class Main {
                 case SEND_PAYMENT -> {
                     System.out.println("Send Payment choice !");
                     System.out.println("Choose a sender account !");
-                    xrplAccount selectedAccount = selectAccount(accountList.getAccounts(),
+                    xrplAccount selectedAccount = LedgerUtility.selectAccount(accountList.getAccounts(),
                             accountList.getNumberOfAccounts());
 
-                    AccountInfoResult selectedAccountInfos = null;
+                    AccountInfoResult selectedAccountInfos = testnetClient
+                            .getAccountInfos(selectedAccount.getrAddress());
                     scanner.nextLine();
-                    try {
-                        selectedAccountInfos = testnetClient.getAccountInfos(selectedAccount.getrAddress());
-                    } catch (JsonRpcClientErrorException e) {
-                        System.out.println("Error while fetching account data: " + e.getMessage());
-                        break;
-                    }
+                    if(selectedAccountInfos == null){continue;}
 
                     if (!selectedAccountInfos.validated()) {
-                        System.out.println("The selected account is not activated! Please fund it to cover the " +
-                                "reserve and transaction fees.");
+                        LedgerErrorMessage.printError(LedgerErrorMessage.ACCOUNT_NOT_FOUND);
                         continue;
                     }
 
                     System.out.println("Please enter the rAddress of the destination account: ");
-                    Address destinationAccount = inputAddress();
+                    Address destinationAccount = LedgerUtility.inputAddress();
 
                     if(destinationAccount == null){ break;}
-
                     if(Objects.equals(destinationAccount, selectedAccount.getrAddress())){
                         System.out.println("You cannot send a payment to yourself");
                         break;
                     }
+
 
                     ServerInfo serverInfoData = testnetClient.getServerInfo().info();
                     Optional<ServerInfo.ValidatedLedger> validatedLedgerOptional = serverInfoData.validatedLedger();
@@ -103,7 +137,7 @@ public class Main {
                     System.out.println("Please enter the amount to send (Available balance : " + accountBalance +
                             " XRP):");
 
-                    BigDecimal amountToSend = BigDecimal.ZERO;
+                    BigDecimal amountToSend;
                     String input = scanner.next();
                     scanner.nextLine();
                     try {
@@ -122,8 +156,7 @@ public class Main {
                     if (amountToSend.compareTo(BigDecimal.ZERO) <= 0) {
                         System.out.println("Amount must be greater than zero.");
                     } else if (openLedgerFee.add(amountToSend).compareTo(accountBalance) > 0) {
-                        System.out.println("Insufficient funds " + accountBalance +
-                                ". The total amount (including fees) exceeds the available balance.");
+                        LedgerErrorMessage.printError(LedgerErrorMessage.INSUFFICIENT_FUNDS);
                     } else {
                         try {
                             testnetClient.sendPayment(selectedAccount, destinationAccount, amountInDrops);
@@ -136,18 +169,14 @@ public class Main {
                 case DELETE_ACCOUNT -> {
 
                     System.out.println("Choose an account to delete !");
-                    xrplAccount selectedAccount = selectAccount(accountList.getAccounts(), accountList.getNumberOfAccounts());
+                    xrplAccount selectedAccount = LedgerUtility.selectAccount(accountList.getAccounts()
+                            , accountList.getNumberOfAccounts());
 
-                    AccountInfoResult selectedAccountInfos = null;
-                    try {
-                        selectedAccountInfos = testnetClient.getAccountInfos(selectedAccount.getrAddress());
-                    } catch (JsonRpcClientErrorException e) {
-                        System.out.println("Error while fetching account data: " + e.getMessage());
-                        break;
-                    }
+                    AccountInfoResult selectedAccountInfos = testnetClient.getAccountInfos(selectedAccount.getrAddress());
+                    if(selectedAccountInfos == null){continue;}
 
                     if (!selectedAccountInfos.validated()) {
-                        System.out.println("The selected account is not activated!");
+                        LedgerErrorMessage.printError(LedgerErrorMessage.ACCOUNT_NOT_FOUND);
                         break;
                     } else if (selectedAccountInfos.accountData().ownerCount().longValue() > 1000) {
                         System.out.println("The selected account owns more than 1000 directory entries and cannot be deleted");
@@ -173,18 +202,17 @@ public class Main {
                     UnsignedInteger accountSequence = selectedAccountInfos.accountData().sequence();
                     LedgerIndex latestLedgerIndex = testnetClient.getLatestLedgerIndex();
 
-                    // Verify the difference between latest ledger index and acccount sequence number
+                    // Verify the difference between latest ledger index and account sequence number
                     if (latestLedgerIndex.unsignedIntegerValue().minus(accountSequence)
                             .compareTo(UnsignedInteger.valueOf(256)) < 0 ) {
-                        System.out.println("The account cannot be deleted because it has not passed 256 ledgers since its sequence number.");
+                        System.out.println("The account cannot be deleted because it has not passed 256 " +
+                                "ledgers since its sequence number.");
                         break;
                     }
 
                     System.out.println("Please enter the rAddress of the deleted account funds receiver: ");
-                    Address destinationAccount = inputAddress();
+                    Address destinationAccount = LedgerUtility.inputAddress();
                     if(destinationAccount == null){break;}
-
-
                     testnetClient.deleteAccount(selectedAccount, destinationAccount, testnetClient.getBaseIncrementXrp());
                 }
 
@@ -194,32 +222,10 @@ public class Main {
                         AccountInfosOptions.printAccountInfosMenu();
                         choice = scanner.nextInt();
 
-                        xrplAccount infosSelectedAccount = selectAccount(accountList.getAccounts()
+                        xrplAccount infosSelectedAccount = LedgerUtility.selectAccount(accountList.getAccounts()
                                 , accountList.getNumberOfAccounts());
-
-                        switch (choice){
-
-                            case 1 -> {
-                                System.out.println("Choose the balance type:");
-                                FunctionParameters.printBalanceTypes();
-                                int balanceChoice = scanner.nextInt();
-                                FunctionParameters balanceType = FunctionParameters.getBalanceOptions(balanceChoice);
-                                System.out.println( FunctionParameters.getBalanceText(balanceChoice) + " "
-                                        + testnetClient.getAccountXrpBalance(infosSelectedAccount.getrAddress()
-                                        ,balanceType));
-                                break;
-                            }
-                            case 3 -> {
-                                Address activator = testnetClient
-                                            .getAccountActivator(infosSelectedAccount.getrAddress());
-                                if(activator == null){
-                                    System.out.println("The account is not active !");
-                                } else {
-                                    System.out.println("Account activated by : " + activator);
-                                }
-                            }
-                            default -> throw new IllegalStateException("Unexpected value: " + choice);
-                        }
+                        AccountInfosOptions.processAccountInfosOptions(testnetClient,
+                                infosSelectedAccount.getrAddress(), choice);
                     } else {
                         System.out.println("You don't have an account, please create one !");
                     }
@@ -230,57 +236,6 @@ public class Main {
                 default -> throw new IllegalStateException("Unexpected value: " + userChoice);
             }
         }while (userChoice != MenuOptions.QUIT_PROGRAM);
-
         System.exit(0);
     }
-
-        public static boolean isValidXrpAddress(String address) {
-            if (!xrplAccount.getAddressPattern().matcher(address).matches()) {
-                return false;
-            }
-            try {
-                byte[] decoded = Base58.base58Decode(address);
-                return true;
-            } catch (Exception e) {
-                return false;
-            }
-        }
-
-    public static xrplAccount selectAccount(ArrayList<xrplAccount> accounts, int numberOfAccounts) {
-        Scanner selectScanner = new Scanner(System.in);
-        int choice = 0;
-        do {
-            System.out.println("Please select the account in the list (1 to "
-                    + numberOfAccounts + "):");
-            for (int i = 1; i <= numberOfAccounts; ++i) {
-                System.out.println(i + ": " + accounts.get(i - 1).getrAddress());
-            }
-            choice = selectScanner.nextInt();
-            selectScanner.nextLine();
-
-            if (choice < 1 || choice > numberOfAccounts) {
-                System.out.println("Invalid choice, please try again.");
-            }
-        } while (choice < 1 || choice > numberOfAccounts);
-
-        return accounts.get(choice - 1);
-    }
-
-    public static Address inputAddress() {
-        String inputAddr = null;
-        Scanner addessScanner = new Scanner(System.in);
-        try {
-            inputAddr = addessScanner.nextLine();
-            if(!isValidXrpAddress(inputAddr)){
-                System.out.println("Invalid address format.");
-                return null;
-            }
-        } catch (Exception e) {
-            System.out.println("Error reading input: " + e.getMessage());
-            return null;
-        }
-
-        return Address.of(inputAddr);
-    }
-
 }
