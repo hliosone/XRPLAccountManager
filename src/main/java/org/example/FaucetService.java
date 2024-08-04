@@ -18,6 +18,7 @@ public class FaucetService {
     }
 
     public void fundWallet(Address rAddress) throws InterruptedException {
+        System.out.println("Funding the account ...");
         try {
             currentFaucet.fundAccount(FundAccountRequest.of(rAddress));
             // Wait for the Faucet Payment to get validated

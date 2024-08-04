@@ -2,7 +2,8 @@ package org.example;
 
 public enum LedgerErrorMessage {
     ACCOUNT_NOT_FOUND(1),
-    INSUFFICIENT_FUNDS(2);
+    INSUFFICIENT_FUNDS(2),
+    NO_MANAGED_ACCOUNTS(3);
 
     private final int value;
 
@@ -18,6 +19,9 @@ public enum LedgerErrorMessage {
             case INSUFFICIENT_FUNDS -> {
                 System.out.println("Insufficient funds ! The total amount (including fees) " +
                         "exceeds the available balance.");
+            }
+            case NO_MANAGED_ACCOUNTS -> {
+                System.out.println("You don't have any managed accounts !");
             }
             default -> {
                 System.out.println("Unknown error !");

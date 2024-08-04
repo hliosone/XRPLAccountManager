@@ -37,6 +37,18 @@ public enum AccountInfosOptions {
                         + client.getAccountXrpBalance(accountAddress
                         , balanceType) + " XRP");
             }
+            case 2 -> {
+                System.out.println("Select the transaction type you want to search");
+                TransactionsUtility.printTransactionTypes();
+                int txChoice = scanner.nextInt();
+                TransactionsUtility txType = TransactionsUtility.getTransactionType(txChoice);
+
+                System.out.println("Enter the number of recent transactions you want to check out:");
+                System.out.println("For instance, entering 10 will show you up to 10 of the latest transactions.");
+                int numberTransactions = scanner.nextInt();
+
+                TransactionsUtility.processInfosTransaction(client, accountAddress, numberTransactions, txType);
+            }
             case 3 -> {
                 Address activator = client
                         .getAccountActivator(accountAddress);

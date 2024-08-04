@@ -73,12 +73,16 @@ public class ClientService {
         return selectedAccountInfos;
     }
 
-    public Address getAccountActivator(Address accountAddress) throws JsonRpcClientErrorException {
+    public AccountTransactionsResult getAccountTransactions(Address accountAddress) throws JsonRpcClientErrorException {
         AccountTransactionsRequestParams requestParams = AccountTransactionsRequestParams
                 .unboundedBuilder()
                 .account(accountAddress)
                 .build();
-        AccountTransactionsResult transactionsResult = this.rippledClient.accountTransactions(requestParams);
+        return this.rippledClient.accountTransactions(requestParams);
+    }
+
+    public Address getAccountActivator(Address accountAddress) throws JsonRpcClientErrorException {
+        AccountTransactionsResult transactionsResult = getAccountTransactions(accountAddress);
         List<AccountTransactionsTransactionResult<? extends Transaction>> txList = transactionsResult.transactions();
         if(!txList.isEmpty()){
             return(txList.get(txList.size() - 1).resultTransaction().transaction().account());

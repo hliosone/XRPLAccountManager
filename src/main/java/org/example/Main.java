@@ -90,11 +90,8 @@ public class Main {
                     if(accountList.getNumberOfAccounts() > 0){
                         xrplAccount selectedAccount = LedgerUtility.selectAccount(accountList.getAccounts(),
                                 accountList.getNumberOfAccounts());
-                        System.out.println("Funding the account ...");
                         rippleFaucet.fundWallet(selectedAccount.getrAddress());
-                    } else {
-                        System.out.println("You don't have an account, please create one first !");
-                    }
+                    } else { LedgerErrorMessage.printError(LedgerErrorMessage.NO_MANAGED_ACCOUNTS); }
                 }
 
                 case SEND_PAYMENT -> {
