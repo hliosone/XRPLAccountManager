@@ -13,20 +13,10 @@ import java.util.regex.Pattern;
 
 public class xrplAccount {
 
-        public xrplAccount() {
-            System.out.println("Creating new account ...");
-            this.randomKeyPair = Seed.ed25519Seed().deriveKeyPair();
+        public xrplAccount(final KeyPair keyPair) {
+            this.randomKeyPair = (keyPair == null ? Seed.ed25519Seed().deriveKeyPair() : keyPair);
             this.rAddress = randomKeyPair.publicKey().deriveAddress();
             this.xAddress = AddressCodec.getInstance().classicAddressToXAddress(this.rAddress, true);
-            System.out.println("New account rAddress is : " + this.rAddress);
-        }
-
-        public xrplAccount(KeyPair importedKeyPair) {
-            System.out.println("Importing account...");
-            this.randomKeyPair = importedKeyPair;
-            this.rAddress = randomKeyPair.publicKey().deriveAddress();
-            this.xAddress = AddressCodec.getInstance().classicAddressToXAddress(this.rAddress, true);
-            System.out.println("Account " + this.rAddress + " have been successfully imported !");
         }
 
         public Address getrAddress(){
@@ -37,7 +27,7 @@ public class xrplAccount {
             return this.xAddress;
         }
 
-        public KeyPair getRandomKeyPair(){
+        KeyPair getRandomKeyPair(){
             return this.randomKeyPair;
         }
 

@@ -8,14 +8,7 @@ import org.xrpl.xrpl4j.crypto.core.keys.*;
 import org.xrpl.xrpl4j.crypto.core.*;
 import org.xrpl.xrpl4j.crypto.keys.ImmutableKeyPair;
 import org.xrpl.xrpl4j.crypto.keys.KeyPair;
-import org.xrpl.xrpl4j.crypto.keys.PrivateKey;
-import org.xrpl.xrpl4j.crypto.keys.PublicKey;
-import org.xrpl.xrpl4j.keypairs.KeyPairService;
 import org.xrpl.xrpl4j.model.transactions.Address;
-import org.xrpl.xrpl4j.wallet.Wallet;
-import org.xrpl.xrpl4j.wallet.WalletFactory;
-import org.xrpl.xrpl4j.codec.addresses.UnsignedByteArray;
-import org.xrpl.xrpl4j.crypto.core.keys.KeyPairService.*;
 
 import org.xrpl.xrpl4j.crypto.keys.KeyPair;
 import org.xrpl.xrpl4j.crypto.keys.PrivateKey;
@@ -51,7 +44,6 @@ import static ch.qos.logback.core.encoder.ByteArrayUtil.hexStringToByteArray;
 public class Main {
     public static void main(String[] args) throws JsonRpcClientErrorException, InterruptedException, JsonProcessingException {
         // Construct a network client
-        //XrplClient xrplClient = new XrplClient(HttpUrl.get("https://s.altnet.rippletest.net:51234/"));
         ClientService testnetClient = new ClientService("https://s.altnet.rippletest.net:51234/");
         FaucetService rippleFaucet = new FaucetService("https://faucet.altnet.rippletest.net");
 
@@ -59,6 +51,7 @@ public class Main {
         Scanner scanner = new Scanner(System.in);
         MenuOptions userChoice;
         int choice;
+        
         do {
             MenuOptions.printMenuOptions();
             choice = scanner.nextInt();
@@ -66,28 +59,28 @@ public class Main {
 
             switch (userChoice) {
                 case CREATE_ACCOUNT -> {
-                    System.out.println("Create Account choice !");
-                    accountList.addAccount();
+                    accountList.addAccount(null);
                 }
                 case IMPORT_ACCOUNT -> {
-                    System.out.println("Import Account choice !");
                     scanner.nextLine();
-                    System.out.print("Enter Private Key : ");
+                    System.out.print("Enter Seed Key: ");
                     String privateKeyInput = scanner.nextLine();
 
                     try {
+                        System.out.println("Importing account...");
                         org.xrpl.xrpl4j.crypto.keys.Seed seed = org.xrpl.xrpl4j.crypto.keys.Seed.fromBase58EncodedSecret
                                 ((org.xrpl.xrpl4j.crypto.keys.Base58EncodedSecret.of(privateKeyInput)));
                         KeyPair keyPair = seed.deriveKeyPair();
                         accountList.addAccount(keyPair);
+                        System.out.println("Account " + keyPair.publicKey().deriveAddress()
+                                + " have been successfully imported !");
                     } catch (org.xrpl.xrpl4j.codec.addresses.exceptions.EncodingFormatException e) {
                         System.err.println("Key format error : " + e.getMessage());
                     }
                 }
                 case FUND_ACCOUNT -> {
-                    System.out.println("Fund account choice !");
-                    System.out.println("Choose the account to fund !");
                     if(accountList.getNumberOfAccounts() > 0){
+                        System.out.println("Choose the account to fund !");
                         xrplAccount selectedAccount = LedgerUtility.selectAccount(accountList.getAccounts(),
                                 accountList.getNumberOfAccounts());
                         rippleFaucet.fundWallet(selectedAccount.getrAddress());
@@ -95,8 +88,7 @@ public class Main {
                 }
 
                 case SEND_PAYMENT -> {
-                    System.out.println("Send Payment choice !");
-                    System.out.println("Choose a sender account !");
+                    System.out.println("Choose the sender account !");
                     xrplAccount selectedAccount = LedgerUtility.selectAccount(accountList.getAccounts(),
                             accountList.getNumberOfAccounts());
 
@@ -113,12 +105,12 @@ public class Main {
                     System.out.println("Please enter the rAddress of the destination account: ");
                     Address destinationAccount = LedgerUtility.inputAddress();
 
-                    if(destinationAccount == null){ break;}
+                    if(destinationAccount == null){ continue;}
+
                     if(Objects.equals(destinationAccount, selectedAccount.getrAddress())){
                         System.out.println("You cannot send a payment to yourself");
-                        break;
+                        continue;
                     }
-
 
                     ServerInfo serverInfoData = testnetClient.getServerInfo().info();
                     Optional<ServerInfo.ValidatedLedger> validatedLedgerOptional = serverInfoData.validatedLedger();
@@ -142,7 +134,7 @@ public class Main {
                         System.out.println("Amount to send : " + amountToSend);
                     } catch (NumberFormatException e) {
                         System.out.println("Invalid amount format.");
-                        break;
+                        continue;
                     }
 
                     BigDecimal amountToSendInDrops = amountToSend.multiply(BigDecimal.valueOf(1_000_000));
@@ -150,15 +142,14 @@ public class Main {
 
                     // Checking validity of amount to send
                     BigDecimal openLedgerFee = testnetClient.getClient().fee().drops().openLedgerFee().toXrp();
-                    if (amountToSend.compareTo(BigDecimal.ZERO) <= 0) {
-                        System.out.println("Amount must be greater than zero.");
-                    } else if (openLedgerFee.add(amountToSend).compareTo(accountBalance) > 0) {
-                        LedgerErrorMessage.printError(LedgerErrorMessage.INSUFFICIENT_FUNDS);
-                    } else {
-                        try {
-                            testnetClient.sendPayment(selectedAccount, destinationAccount, amountInDrops);
-                        } catch (JsonRpcClientErrorException e) {
-                            System.out.println("Error while sending payment: " + e.getMessage());
+                    if(TransactionsUtility.isValidPaymentAmount(amountToSend, openLedgerFee, accountBalance)){
+                        if(TransactionsUtility.userValidation()){
+                            try {
+                                testnetClient.sendPayment(selectedAccount, destinationAccount, amountInDrops);
+                            } catch (JsonRpcClientErrorException e) {
+                                System.out.println("Error while sending payment: " + e.getMessage());
+                                continue;
+                            }
                         }
                     }
                 }
@@ -178,13 +169,12 @@ public class Main {
                     } else if (selectedAccountInfos.accountData().ownerCount().longValue() > 1000) {
                         System.out.println("The selected account owns more than 1000 directory entries and cannot be deleted");
                         break;
-                    } else if (selectedAccountInfos.accountData().ownerCount().longValue() > 0){
-                        // Get account objects
-                        AccountObjectsRequestParams requestParams = AccountObjectsRequestParams.builder()
-                                .account(selectedAccount.getrAddress())
-                                .ledgerSpecifier(LedgerSpecifier.VALIDATED)
-                                .build();
-                        AccountObjectsResult accountObjectsResult = testnetClient.getClient().accountObjects(requestParams);
+                    } else if (selectedAccountInfos.accountData().ownerCount().longValue() > 0) {
+
+                        AccountObjectsResult accountObjectsResult;
+                        try {
+                            accountObjectsResult = testnetClient.getAccountObjects(selectedAccount.getrAddress());
+                        } catch (JsonRpcClientErrorException e) { continue; }
 
                         for (LedgerObject obj : accountObjectsResult.accountObjects()) {
                             if (obj instanceof EscrowObject || obj instanceof PayChannelObject ||
@@ -210,7 +200,10 @@ public class Main {
                     System.out.println("Please enter the rAddress of the deleted account funds receiver: ");
                     Address destinationAccount = LedgerUtility.inputAddress();
                     if(destinationAccount == null){break;}
-                    testnetClient.deleteAccount(selectedAccount, destinationAccount, testnetClient.getBaseIncrementXrp());
+                    if(TransactionsUtility.userValidation()){
+                        testnetClient.deleteAccount(selectedAccount, destinationAccount,
+                                testnetClient.getBaseIncrementXrp());
+                    }
                 }
 
                 case VIEW_MY_ACCOUNTS -> {

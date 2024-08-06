@@ -7,13 +7,9 @@ public enum MenuOptions {
     SEND_PAYMENT(4),
     DELETE_ACCOUNT(5),
     VIEW_MY_ACCOUNTS(6),
-    VIEW_CHAIN_ACCOUNT(7),
-    QUIT_PROGRAM(8);
-
-    private final int value;
+    QUIT_PROGRAM(7);
 
     MenuOptions(int value) {
-        this.value = value;
     }
 
     public static void printMenuOptions(){
@@ -24,8 +20,7 @@ public enum MenuOptions {
         System.out.println("4. Send Payment");
         System.out.println("5. Delete Account");
         System.out.println("6. View My Account(s)");
-        System.out.println("7. View On-Chain Account");
-        System.out.println("8. Quit Program");
+        System.out.println("7. Quit Program");
     }
 
     public static MenuOptions getMenuOptions(int value) {
@@ -49,9 +44,6 @@ public enum MenuOptions {
                 return MenuOptions.VIEW_MY_ACCOUNTS;
             }
             case 7 -> {
-                return MenuOptions.VIEW_CHAIN_ACCOUNT;
-            }
-            case 8 -> {
                 return MenuOptions.QUIT_PROGRAM;
             }
             default -> {

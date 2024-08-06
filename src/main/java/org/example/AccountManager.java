@@ -8,11 +8,6 @@ import java.util.ArrayList;
 public class AccountManager {
     private ArrayList<xrplAccount> managedAccounts = new ArrayList<>();
 
-    public void addAccount() {
-        xrplAccount newAcc = new xrplAccount();
-        managedAccounts.add(newAcc);
-    }
-
     public void addAccount(KeyPair importedKeyPair) {
         xrplAccount newAcc = new xrplAccount(importedKeyPair);
         managedAccounts.add(newAcc);

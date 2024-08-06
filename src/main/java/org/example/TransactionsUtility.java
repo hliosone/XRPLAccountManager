@@ -5,7 +5,9 @@ import org.xrpl.xrpl4j.model.client.accounts.AccountTransactionsResult;
 import org.xrpl.xrpl4j.model.client.accounts.AccountTransactionsTransactionResult;
 import org.xrpl.xrpl4j.model.transactions.*;
 
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Scanner;
 import java.util.stream.Collectors;
 
 public enum TransactionsUtility {
@@ -36,11 +38,40 @@ public enum TransactionsUtility {
         }
     }
 
+    public static boolean userValidation() {
+        Scanner scanner = new Scanner(System.in);
+        String input;
+
+        while (true) {
+            System.out.print("Confirm the transaction ? (y/n): ");
+            input = scanner.nextLine().trim().toLowerCase();
+
+            if (input.equals("y")) {
+                return true;
+            } else if (input.equals("n")) {
+                return false;
+            } else {
+                System.out.println("Invalid input. Please enter 'y' for yes or 'n' for no.");
+            }
+        }
+    }
+
     public static boolean isTransactionOfType(Transaction transaction, TransactionsUtility type) {
         return switch (type) {
             case PAYMENT_TX -> transaction instanceof Payment;
             case DELETE_TX -> transaction instanceof AccountDelete;
         };
+    }
+
+    public static boolean isValidPaymentAmount(final BigDecimal amountToSend, final BigDecimal ledgerFee,
+                                               final BigDecimal accountBalance){
+        if (amountToSend.compareTo(BigDecimal.ZERO) <= 0) {
+            System.out.println("Amount must be greater than zero.");
+            return false;
+        } else if (ledgerFee.add(amountToSend).compareTo(accountBalance) > 0) {
+            LedgerErrorMessage.printError(LedgerErrorMessage.INSUFFICIENT_FUNDS);
+            return false;
+        } else { return true; }
     }
 
     public static void printTransaction(TransactionsUtility type, Transaction tx){

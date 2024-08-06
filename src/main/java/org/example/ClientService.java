@@ -63,14 +63,29 @@ public class ClientService {
                 .account(accountAddress)
                 .ledgerSpecifier(LedgerSpecifier.VALIDATED)
                 .build();
-        AccountInfoResult selectedAccountInfos = null;
+
         try {
-            selectedAccountInfos = this.rippledClient.accountInfo(requestParams);
+            return this.rippledClient.accountInfo(requestParams);
         } catch (JsonRpcClientErrorException e) {
             System.out.println("Error while fetching account data: " + e.getMessage());
-            return null;
+            throw e;
         }
-        return selectedAccountInfos;
+    }
+
+
+    public AccountObjectsResult getAccountObjects(Address accountAddress) throws JsonRpcClientErrorException {
+        // Get account objects
+        AccountObjectsRequestParams requestParams = AccountObjectsRequestParams.builder()
+                .account(accountAddress)
+                .ledgerSpecifier(LedgerSpecifier.VALIDATED)
+                .build();
+
+        try {
+            return this.rippledClient.accountObjects(requestParams);
+        } catch (JsonRpcClientErrorException e) {
+            System.out.println("Error while fetching account data: " + e.getMessage());
+            throw e;
+        }
     }
 
     public AccountTransactionsResult getAccountTransactions(Address accountAddress) throws JsonRpcClientErrorException {
@@ -239,7 +254,6 @@ public class ClientService {
                 System.out.println("No metadata available for the transaction.");
             }
         }
-
         return resultCode;
     }
 
