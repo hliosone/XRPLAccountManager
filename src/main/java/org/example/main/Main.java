@@ -1,45 +1,22 @@
-package org.example;
+package org.example.main;
 
-import java.security.*;
-
-import org.bouncycastle.util.encoders.Hex;
-import org.xrpl.xrpl4j.codec.addresses.KeyType;
-import org.xrpl.xrpl4j.crypto.core.keys.*;
-import org.xrpl.xrpl4j.crypto.core.*;
-import org.xrpl.xrpl4j.crypto.keys.ImmutableKeyPair;
-import org.xrpl.xrpl4j.crypto.keys.KeyPair;
+import org.example.program_management.*;
+import org.example.secure.*;
+import org.example.utility.*;
 import org.xrpl.xrpl4j.model.transactions.Address;
-
-import org.xrpl.xrpl4j.crypto.keys.KeyPair;
-import org.xrpl.xrpl4j.crypto.keys.PrivateKey;
-import org.xrpl.xrpl4j.crypto.keys.PublicKey;
-
-
-import java.util.*;
-
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.primitives.UnsignedInteger;
-import com.google.common.primitives.UnsignedLong;
-import okhttp3.HttpUrl;
 import org.xrpl.xrpl4j.client.JsonRpcClientErrorException;
-import org.xrpl.xrpl4j.client.XrplClient;
-import org.xrpl.xrpl4j.codec.addresses.UnsignedByteArray;
 import org.xrpl.xrpl4j.model.client.accounts.*;
 import org.xrpl.xrpl4j.model.client.common.LedgerIndex;
-import org.xrpl.xrpl4j.model.client.common.LedgerSpecifier;
 import org.xrpl.xrpl4j.model.client.serverinfo.ServerInfo;
 import org.xrpl.xrpl4j.model.ledger.*;
 import org.xrpl.xrpl4j.model.transactions.*;
-import io.github.novacrypto.base58.Base58;
-
-import org.xrpl.xrpl4j.model.client.accounts.AccountInfoRequestParams;
-import org.xrpl.xrpl4j.model.client.accounts.AccountInfoResult;
 
 import java.math.BigDecimal;
+import java.util.Objects;
 import java.util.Scanner;
-
-import static ch.qos.logback.core.encoder.ByteArrayUtil.hexStringToByteArray;
 
 public class Main {
     public static void main(String[] args) throws JsonRpcClientErrorException, InterruptedException, JsonProcessingException {
@@ -58,35 +35,13 @@ public class Main {
             userChoice = MenuOptions.getMenuOptions(choice);
 
             switch (userChoice) {
-                case CREATE_ACCOUNT -> {
-                    accountList.addAccount(null);
-                }
-                case IMPORT_ACCOUNT -> {
-                    scanner.nextLine();
-                    System.out.print("Enter Seed Key: ");
-                    String privateKeyInput = scanner.nextLine();
-
-                    try {
-                        System.out.println("Importing account...");
-                        org.xrpl.xrpl4j.crypto.keys.Seed seed = org.xrpl.xrpl4j.crypto.keys.Seed.fromBase58EncodedSecret
-                                ((org.xrpl.xrpl4j.crypto.keys.Base58EncodedSecret.of(privateKeyInput)));
-                        KeyPair keyPair = seed.deriveKeyPair();
-                        accountList.addAccount(keyPair);
-                        System.out.println("Account " + keyPair.publicKey().deriveAddress()
-                                + " have been successfully imported !");
-                    } catch (org.xrpl.xrpl4j.codec.addresses.exceptions.EncodingFormatException e) {
-                        System.err.println("Key format error : " + e.getMessage());
-                    }
-                }
+                case CREATE_ACCOUNT -> accountList.addAccount(null);
+                case IMPORT_ACCOUNT -> accountList.importAccount();
                 case FUND_ACCOUNT -> {
-                    if(accountList.getNumberOfAccounts() > 0){
-                        System.out.println("Choose the account to fund !");
-                        xrplAccount selectedAccount = LedgerUtility.selectAccount(accountList.getAccounts(),
-                                accountList.getNumberOfAccounts());
-                        rippleFaucet.fundWallet(selectedAccount.getrAddress());
-                    } else { LedgerErrorMessage.printError(LedgerErrorMessage.NO_MANAGED_ACCOUNTS); }
+                    try {
+                        rippleFaucet.fundWallet(accountList.getAccounts());
+                    } catch (InterruptedException e) { continue; }
                 }
-
                 case SEND_PAYMENT -> {
                     System.out.println("Choose the sender account !");
                     xrplAccount selectedAccount = LedgerUtility.selectAccount(accountList.getAccounts(),
@@ -102,9 +57,7 @@ public class Main {
                         continue;
                     }
 
-                    System.out.println("Please enter the rAddress of the destination account: ");
                     Address destinationAccount = LedgerUtility.inputAddress();
-
                     if(destinationAccount == null){ continue;}
 
                     if(Objects.equals(destinationAccount, selectedAccount.getrAddress())){
@@ -112,30 +65,21 @@ public class Main {
                         continue;
                     }
 
-                    ServerInfo serverInfoData = testnetClient.getServerInfo().info();
+                    /*ServerInfo serverInfoData = testnetClient.getServerInfo().info();
                     Optional<ServerInfo.ValidatedLedger> validatedLedgerOptional = serverInfoData.validatedLedger();
                     if (validatedLedgerOptional.isEmpty()) {
                         System.out.println("Error: Validated ledger information is not available.");
                         continue;
-                    }
+                    }*/
 
                     BigDecimal accountBalance = testnetClient
                             .getAccountXrpBalance(selectedAccount.getrAddress()
                                     , FunctionParameters.AVAILABLE_BALANCE);
 
-                    System.out.println("Please enter the amount to send (Available balance : " + accountBalance +
-                            " XRP):");
-
                     BigDecimal amountToSend;
-                    String input = scanner.next();
-                    scanner.nextLine();
                     try {
-                        amountToSend = new BigDecimal(input);
-                        System.out.println("Amount to send : " + amountToSend);
-                    } catch (NumberFormatException e) {
-                        System.out.println("Invalid amount format.");
-                        continue;
-                    }
+                        amountToSend = TransactionsUtility.inputAmountToSend(accountBalance);
+                    } catch (Exception e) { continue; }
 
                     BigDecimal amountToSendInDrops = amountToSend.multiply(BigDecimal.valueOf(1_000_000));
                     XrpCurrencyAmount amountInDrops = XrpCurrencyAmount.ofDrops(amountToSendInDrops.longValue());
@@ -145,7 +89,7 @@ public class Main {
                     if(TransactionsUtility.isValidPaymentAmount(amountToSend, openLedgerFee, accountBalance)){
                         if(TransactionsUtility.userValidation()){
                             try {
-                                testnetClient.sendPayment(selectedAccount, destinationAccount, amountInDrops);
+                                testnetClient.sendOldPayment(selectedAccount, destinationAccount, amountInDrops);
                             } catch (JsonRpcClientErrorException e) {
                                 System.out.println("Error while sending payment: " + e.getMessage());
                                 continue;
@@ -170,7 +114,6 @@ public class Main {
                         System.out.println("The selected account owns more than 1000 directory entries and cannot be deleted");
                         break;
                     } else if (selectedAccountInfos.accountData().ownerCount().longValue() > 0) {
-
                         AccountObjectsResult accountObjectsResult;
                         try {
                             accountObjectsResult = testnetClient.getAccountObjects(selectedAccount.getrAddress());
@@ -220,9 +163,7 @@ public class Main {
                         System.out.println("You don't have an account, please create one !");
                     }
                 }
-                case QUIT_PROGRAM -> {
-                    System.out.println("Quitting program ...");
-                }
+                case QUIT_PROGRAM -> System.out.println("Quitting program ...");
                 default -> throw new IllegalStateException("Unexpected value: " + userChoice);
             }
             System.out.println();

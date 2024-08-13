@@ -48,13 +48,11 @@
             <version>1.2.0</version>
         </dependency>
 
-
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-            <version>2.14.2</version> <!-- Assurez-vous d'utiliser la dernière version -->
-        </dependency>
-
+<!--    <dependency>-->
+<!--            <groupId>com.fasterxml.jackson.core</groupId>-->
+<!--            <artifactId>jackson-databind</artifactId>-->
+<!--            <version>2.14.2</version>-->
+<!--        </dependency> -->
         <dependency>
             <groupId>io.github.novacrypto</groupId>
             <artifactId>Base58</artifactId>

@@ -1,21 +1,19 @@
-package org.example;
+package org.example.program_management;
 
+import org.example.secure.ClientService;
+import org.example.utility.TransactionsUtility;
 import org.xrpl.xrpl4j.client.JsonRpcClientErrorException;
 import org.xrpl.xrpl4j.model.transactions.Address;
 
-import java.util.Random;
 import java.util.Scanner;
 
 public enum AccountInfosOptions {
-    ACCOUNT_BALANCE(1),
-    ACCOUNT_TRANSACTIONS(2),
-    ACCOUNT_ACTIVATOR(3),
-    QUIT_ACCOUNT_MENU(4);
-    private final int value;
+    ACCOUNT_BALANCE,
+    ACCOUNT_TRANSACTIONS,
+    ACCOUNT_ACTIVATOR,
+    QUIT_ACCOUNT_MENU;
 
-    AccountInfosOptions(int value) {
-        this.value = value;
-    }
+    AccountInfosOptions() {}
 
     public static void printAccountInfosMenu(){
         System.out.println("1. Account balance");

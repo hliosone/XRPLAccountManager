@@ -1,14 +1,14 @@
-package org.example;
+package org.example.secure;
 
+import org.example.secure.AccountManager;
 import org.xrpl.xrpl4j.codec.addresses.AddressCodec;
 import org.xrpl.xrpl4j.crypto.keys.KeyPair;
-import org.xrpl.xrpl4j.crypto.keys.PrivateKey;
-import org.xrpl.xrpl4j.crypto.keys.PublicKey;
 import org.xrpl.xrpl4j.crypto.keys.Seed;
 import org.xrpl.xrpl4j.model.transactions.Address;
 import org.xrpl.xrpl4j.model.transactions.XAddress;
 
-import java.security.Key;
+import java.util.ArrayList;
+import java.util.Scanner;
 import java.util.regex.Pattern;
 
 public class xrplAccount {

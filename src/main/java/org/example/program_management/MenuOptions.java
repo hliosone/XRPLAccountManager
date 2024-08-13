@@ -1,4 +1,4 @@
-package org.example;
+package org.example.program_management;
 
 public enum MenuOptions {
     CREATE_ACCOUNT(1),

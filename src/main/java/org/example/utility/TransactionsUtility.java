@@ -1,5 +1,7 @@
-package org.example;
+package org.example.utility;
 
+import org.example.program_management.LedgerErrorMessage;
+import org.example.secure.ClientService;
 import org.xrpl.xrpl4j.client.JsonRpcClientErrorException;
 import org.xrpl.xrpl4j.model.client.accounts.AccountTransactionsResult;
 import org.xrpl.xrpl4j.model.client.accounts.AccountTransactionsTransactionResult;
@@ -15,7 +17,7 @@ public enum TransactionsUtility {
     DELETE_TX(2);
     private final int value;
 
-    TransactionsUtility(int value) {
+    TransactionsUtility(final int value) {
         this.value = value;
     }
 
@@ -24,7 +26,7 @@ public enum TransactionsUtility {
         System.out.println("2. Delete Account");
     }
 
-    public static TransactionsUtility getTransactionType(int value) {
+    public static TransactionsUtility getTransactionType(final int value) {
         switch (value) {
             case 1 -> {
                 return TransactionsUtility.PAYMENT_TX;
@@ -35,6 +37,24 @@ public enum TransactionsUtility {
             default -> {
                 return null;
             }
+        }
+    }
+
+    public static BigDecimal inputAmountToSend(final BigDecimal accountBalance){
+        Scanner scanner = new Scanner(System.in);
+        System.out.println("Please enter the amount to send (Available balance : " + accountBalance +
+                " XRP):");
+        String input = scanner.next();
+        scanner.nextLine();
+
+        BigDecimal amountToSend;
+        try {
+            amountToSend = new BigDecimal(input);
+            System.out.println("Amount to send : " + amountToSend);
+            return amountToSend;
+        } catch (NumberFormatException e) {
+            System.out.println("Invalid amount format.");
+            throw e;
         }
     }
 
@@ -74,7 +94,7 @@ public enum TransactionsUtility {
         } else { return true; }
     }
 
-    public static void printTransaction(TransactionsUtility type, Transaction tx){
+    public static void printTransaction(final TransactionsUtility type, final Transaction tx){
             if (type == TransactionsUtility.PAYMENT_TX) {
                 Payment paymentTx = (Payment) tx;
                 XrpCurrencyAmount amountInDrops = (XrpCurrencyAmount) paymentTx.amount();
@@ -85,18 +105,15 @@ public enum TransactionsUtility {
             }
     }
 
-    public static void processInfosTransaction(ClientService rippledClient, Address accountAddress, int numberOfTxs,
-                                               TransactionsUtility type) throws JsonRpcClientErrorException {
+    public static void processInfosTransaction(final ClientService rippledClient, final Address accountAddress, final int numberOfTxs,
+                                               final TransactionsUtility type) throws JsonRpcClientErrorException {
         AccountTransactionsResult transactionsResult = rippledClient.getAccountTransactions(accountAddress);
         List<AccountTransactionsTransactionResult<? extends Transaction>> txList = transactionsResult.transactions().stream().toList();
 
         if(!txList.isEmpty()){
             // Filter specific transactions
             List<Transaction> filteredTxList = txList.stream()
-                    .map(result -> {
-                        Transaction tx = result.resultTransaction().transaction(); // Remplace avec la méthode correcte
-                        return tx;
-                    })
+                    .map(result -> result.resultTransaction().transaction())
                     .filter(tx -> tx != null && isTransactionOfType(tx, type))
                     .collect(Collectors.toList());
 

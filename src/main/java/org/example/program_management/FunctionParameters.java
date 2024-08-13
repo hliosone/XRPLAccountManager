@@ -1,4 +1,4 @@
-package org.example;
+package org.example.program_management;
 
 public enum FunctionParameters {
     TOTAL_BALANCE(1),

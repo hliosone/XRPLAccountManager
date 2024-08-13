@@ -1,13 +1,12 @@
-package org.example;
+package org.example.secure;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.primitives.UnsignedInteger;
-import com.google.common.primitives.UnsignedLong;
 import okhttp3.HttpUrl;
-import org.xrpl.xrpl4j.client.JsonRpcClient;
+import org.example.program_management.FunctionParameters;
+import org.example.program_management.LedgerErrorMessage;
+import org.example.utility.LedgerUtility;
 import org.xrpl.xrpl4j.client.JsonRpcClientErrorException;
-import org.xrpl.xrpl4j.client.JsonRpcRequest;
 import org.xrpl.xrpl4j.client.XrplClient;
 import org.xrpl.xrpl4j.crypto.keys.PrivateKey;
 import org.xrpl.xrpl4j.crypto.signing.SignatureService;
@@ -15,23 +14,19 @@ import org.xrpl.xrpl4j.crypto.signing.SingleSignedTransaction;
 import org.xrpl.xrpl4j.crypto.signing.bc.BcSignatureService;
 import org.xrpl.xrpl4j.model.client.accounts.*;
 import org.xrpl.xrpl4j.model.client.common.LedgerIndex;
-import org.xrpl.xrpl4j.model.client.common.LedgerIndexBound;
 import org.xrpl.xrpl4j.model.client.common.LedgerSpecifier;
-import org.xrpl.xrpl4j.model.client.fees.FeeResult;
 import org.xrpl.xrpl4j.model.client.ledger.LedgerRequestParams;
 import org.xrpl.xrpl4j.model.client.serverinfo.ServerInfo;
 import org.xrpl.xrpl4j.model.client.serverinfo.ServerInfoResult;
-import org.xrpl.xrpl4j.model.client.transactions.SubmitResult;
 import org.xrpl.xrpl4j.model.client.transactions.TransactionRequestParams;
 import org.xrpl.xrpl4j.model.client.transactions.TransactionResult;
 import org.xrpl.xrpl4j.model.immutables.FluentCompareTo;
 import org.xrpl.xrpl4j.model.transactions.*;
 
 import java.math.BigDecimal;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Stream;
+import java.util.Scanner;
 
 public class ClientService {
     private final XrplClient rippledClient;
@@ -206,8 +201,28 @@ public class ClientService {
         return transactionResult;
     }
 
+    public String sendPayment(AccountManager accountList) throws JsonRpcClientErrorException {
+        System.out.println("Choose the sender account !");
+        xrplAccount selectedAccount = LedgerUtility.selectAccount(accountList.getAccounts(),
+                accountList.getNumberOfAccounts());
 
-    public String sendPayment(xrplAccount account, Address destination, XrpCurrencyAmount amount) throws JsonRpcClientErrorException, JsonProcessingException, InterruptedException {
+        AccountInfoResult selectedAccountInfos = getAccountInfos(selectedAccount.getrAddress());
+        Scanner scanner = new Scanner(System.in);
+        scanner.nextLine();
+
+        if(selectedAccountInfos == null){return null;}
+
+        /*if (!selectedAccountInfos.validated()) {
+            LedgerErrorMessage.printError(LedgerErrorMessage.ACCOUNT_NOT_FOUND);
+            continue;
+        }*/
+
+        return null;
+    }
+
+    public String sendOldPayment(xrplAccount account, Address destination, XrpCurrencyAmount amount) throws JsonRpcClientErrorException, JsonProcessingException, InterruptedException {
+
+
 
         AccountInfoResult accountInfoResult = getAccountInfos(account.getrAddress());
         UnsignedInteger sequence = accountInfoResult.accountData().sequence();

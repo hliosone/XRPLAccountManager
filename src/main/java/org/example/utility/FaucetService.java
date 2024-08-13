@@ -1,9 +1,13 @@
-package org.example;
+package org.example.utility;
 
 import okhttp3.HttpUrl;
+import org.example.program_management.LedgerErrorMessage;
+import org.example.secure.xrplAccount;
 import org.xrpl.xrpl4j.client.faucet.FaucetClient;
 import org.xrpl.xrpl4j.client.faucet.FundAccountRequest;
 import org.xrpl.xrpl4j.model.transactions.Address;
+
+import java.util.ArrayList;
 
 public class FaucetService {
 
@@ -17,7 +21,28 @@ public class FaucetService {
         System.out.println("Constructed a FaucetClient connected to " + this.faucetAddress);
     }
 
-    public void fundWallet(Address rAddress) throws InterruptedException {
+    public void fundWallet(final ArrayList<xrplAccount> accountList) throws InterruptedException {
+        if(!accountList.isEmpty()){
+            System.out.println("Choose the account to fund !");
+            xrplAccount selectedAccount = LedgerUtility.selectAccount(accountList,
+                    accountList.size());
+
+            System.out.println("Funding the account ...");
+            try {
+                currentFaucet.fundAccount(FundAccountRequest.of(selectedAccount.getrAddress()));
+                // Wait for the Faucet Payment to get validated
+                Thread.sleep(4000);
+                System.out.println("Funded the account " + selectedAccount.getrAddress() + " using " + this.faucetAddress);
+            }catch (InterruptedException e) {
+                System.err.println("Thread was interrupted: " + e.getMessage());
+                throw e;
+            }
+        } else { LedgerErrorMessage.printError(LedgerErrorMessage.NO_MANAGED_ACCOUNTS); }
+
+
+    }
+
+    public void extWallet(Address rAddress) throws InterruptedException {
         System.out.println("Funding the account ...");
         try {
             currentFaucet.fundAccount(FundAccountRequest.of(rAddress));

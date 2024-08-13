@@ -1,6 +1,7 @@
-package org.example;
+package org.example.utility;
 
 import io.github.novacrypto.base58.Base58;
+import org.example.secure.xrplAccount;
 import org.xrpl.xrpl4j.model.transactions.Address;
 
 import java.util.ArrayList;
@@ -24,6 +25,7 @@ public class LedgerUtility {
         String inputAddr = null;
         Scanner addessScanner = new Scanner(System.in);
         try {
+            System.out.println("Please enter the rAddress of the destination account: ");
             inputAddr = addessScanner.nextLine();
             if(!isValidXrpAddress(inputAddr)){
                 System.out.println("Invalid address format.");
