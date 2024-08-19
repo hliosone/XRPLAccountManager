@@ -7,16 +7,18 @@ import org.xrpl.xrpl4j.crypto.keys.Seed;
 import org.xrpl.xrpl4j.model.transactions.Address;
 import org.xrpl.xrpl4j.model.transactions.XAddress;
 
-import java.util.ArrayList;
-import java.util.Scanner;
 import java.util.regex.Pattern;
 
 public class xrplAccount {
 
         public xrplAccount(final KeyPair keyPair) {
+            if(keyPair == null){ System.out.println("Creating account ..."); }
             this.randomKeyPair = (keyPair == null ? Seed.ed25519Seed().deriveKeyPair() : keyPair);
             this.rAddress = randomKeyPair.publicKey().deriveAddress();
             this.xAddress = AddressCodec.getInstance().classicAddressToXAddress(this.rAddress, true);
+            if(keyPair == null){
+                System.out.println("Created account : " + this.rAddress );
+            }
         }
 
         public Address getrAddress(){

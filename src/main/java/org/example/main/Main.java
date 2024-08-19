@@ -10,7 +10,6 @@ import com.google.common.primitives.UnsignedInteger;
 import org.xrpl.xrpl4j.client.JsonRpcClientErrorException;
 import org.xrpl.xrpl4j.model.client.accounts.*;
 import org.xrpl.xrpl4j.model.client.common.LedgerIndex;
-import org.xrpl.xrpl4j.model.client.serverinfo.ServerInfo;
 import org.xrpl.xrpl4j.model.ledger.*;
 import org.xrpl.xrpl4j.model.transactions.*;
 
@@ -26,13 +25,12 @@ public class Main {
 
         AccountManager accountList = new AccountManager();
         Scanner scanner = new Scanner(System.in);
-        MenuOptions userChoice;
-        int choice;
-        
+        //scanner.nextLine();
+        MenuOptions userChoice = null;
+        int choice = 0;
         do {
             MenuOptions.printMenuOptions();
-            choice = scanner.nextInt();
-            userChoice = MenuOptions.getMenuOptions(choice);
+            userChoice = LedgerUtility.inputUserMenu();
 
             switch (userChoice) {
                 case CREATE_ACCOUNT -> accountList.addAccount(null);
@@ -43,61 +41,8 @@ public class Main {
                     } catch (InterruptedException e) { continue; }
                 }
                 case SEND_PAYMENT -> {
-                    System.out.println("Choose the sender account !");
-                    xrplAccount selectedAccount = LedgerUtility.selectAccount(accountList.getAccounts(),
-                            accountList.getNumberOfAccounts());
-
-                    AccountInfoResult selectedAccountInfos = testnetClient
-                            .getAccountInfos(selectedAccount.getrAddress());
-                    scanner.nextLine();
-                    if(selectedAccountInfos == null){continue;}
-
-                    if (!selectedAccountInfos.validated()) {
-                        LedgerErrorMessage.printError(LedgerErrorMessage.ACCOUNT_NOT_FOUND);
-                        continue;
-                    }
-
-                    Address destinationAccount = LedgerUtility.inputAddress();
-                    if(destinationAccount == null){ continue;}
-
-                    if(Objects.equals(destinationAccount, selectedAccount.getrAddress())){
-                        System.out.println("You cannot send a payment to yourself");
-                        continue;
-                    }
-
-                    /*ServerInfo serverInfoData = testnetClient.getServerInfo().info();
-                    Optional<ServerInfo.ValidatedLedger> validatedLedgerOptional = serverInfoData.validatedLedger();
-                    if (validatedLedgerOptional.isEmpty()) {
-                        System.out.println("Error: Validated ledger information is not available.");
-                        continue;
-                    }*/
-
-                    BigDecimal accountBalance = testnetClient
-                            .getAccountXrpBalance(selectedAccount.getrAddress()
-                                    , FunctionParameters.AVAILABLE_BALANCE);
-
-                    BigDecimal amountToSend;
-                    try {
-                        amountToSend = TransactionsUtility.inputAmountToSend(accountBalance);
-                    } catch (Exception e) { continue; }
-
-                    BigDecimal amountToSendInDrops = amountToSend.multiply(BigDecimal.valueOf(1_000_000));
-                    XrpCurrencyAmount amountInDrops = XrpCurrencyAmount.ofDrops(amountToSendInDrops.longValue());
-
-                    // Checking validity of amount to send
-                    BigDecimal openLedgerFee = testnetClient.getClient().fee().drops().openLedgerFee().toXrp();
-                    if(TransactionsUtility.isValidPaymentAmount(amountToSend, openLedgerFee, accountBalance)){
-                        if(TransactionsUtility.userValidation()){
-                            try {
-                                testnetClient.sendOldPayment(selectedAccount, destinationAccount, amountInDrops);
-                            } catch (JsonRpcClientErrorException e) {
-                                System.out.println("Error while sending payment: " + e.getMessage());
-                                continue;
-                            }
-                        }
-                    }
+                    testnetClient.constructPayment(accountList);
                 }
-
                 case DELETE_ACCOUNT -> {
 
                     System.out.println("Choose an account to delete !");
@@ -105,40 +50,18 @@ public class Main {
                             , accountList.getNumberOfAccounts());
 
                     AccountInfoResult selectedAccountInfos = testnetClient.getAccountInfos(selectedAccount.getrAddress());
-                    if(selectedAccountInfos == null){continue;}
+                    AccountObjectsResult accountObjectsResult;
+                    try {
+                        accountObjectsResult = testnetClient.getAccountObjects(selectedAccount.getrAddress());
+                    } catch (JsonRpcClientErrorException e) { continue; }
 
-                    if (!selectedAccountInfos.validated()) {
-                        LedgerErrorMessage.printError(LedgerErrorMessage.ACCOUNT_NOT_FOUND);
-                        break;
-                    } else if (selectedAccountInfos.accountData().ownerCount().longValue() > 1000) {
-                        System.out.println("The selected account owns more than 1000 directory entries and cannot be deleted");
-                        break;
-                    } else if (selectedAccountInfos.accountData().ownerCount().longValue() > 0) {
-                        AccountObjectsResult accountObjectsResult;
-                        try {
-                            accountObjectsResult = testnetClient.getAccountObjects(selectedAccount.getrAddress());
-                        } catch (JsonRpcClientErrorException e) { continue; }
-
-                        for (LedgerObject obj : accountObjectsResult.accountObjects()) {
-                            if (obj instanceof EscrowObject || obj instanceof PayChannelObject ||
-                                    obj instanceof RippleStateObject || obj instanceof CheckObject) {
-                                System.out.println("Account cannot be deleted because it has an " + obj.getClass().getSimpleName()
-                                        + " object");
-                                break;
-                            }
-                        }
-                    }
-
-                    UnsignedInteger accountSequence = selectedAccountInfos.accountData().sequence();
                     LedgerIndex latestLedgerIndex = testnetClient.getLatestLedgerIndex();
 
-                    // Verify the difference between latest ledger index and account sequence number
-                    if (latestLedgerIndex.unsignedIntegerValue().minus(accountSequence)
-                            .compareTo(UnsignedInteger.valueOf(256)) < 0 ) {
-                        System.out.println("The account cannot be deleted because it has not passed 256 " +
-                                "ledgers since its sequence number.");
-                        break;
-                    }
+                    //if(selectedAccountInfos == null || accountObjectsResult == null){continue;}
+                    if(!(LedgerUtility.isAccountDeletable(selectedAccountInfos, accountObjectsResult,
+                            latestLedgerIndex))){
+                        continue;
+                    };
 
                     System.out.println("Please enter the rAddress of the deleted account funds receiver: ");
                     Address destinationAccount = LedgerUtility.inputAddress();
@@ -164,7 +87,7 @@ public class Main {
                     }
                 }
                 case QUIT_PROGRAM -> System.out.println("Quitting program ...");
-                default -> throw new IllegalStateException("Unexpected value: " + userChoice);
+                default -> System.out.println("Unexpected value, please enter a number between 1 and 7 !");
             }
             System.out.println();
         }while (userChoice != MenuOptions.QUIT_PROGRAM);

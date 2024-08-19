@@ -36,6 +36,8 @@ public class FaucetService {
             }catch (InterruptedException e) {
                 System.err.println("Thread was interrupted: " + e.getMessage());
                 throw e;
+            } catch (Exception e){
+                System.out.println("An error occured while using the faucet : " + e.getMessage());
             }
         } else { LedgerErrorMessage.printError(LedgerErrorMessage.NO_MANAGED_ACCOUNTS); }
 

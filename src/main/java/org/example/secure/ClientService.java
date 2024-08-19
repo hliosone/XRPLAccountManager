@@ -6,6 +6,7 @@ import okhttp3.HttpUrl;
 import org.example.program_management.FunctionParameters;
 import org.example.program_management.LedgerErrorMessage;
 import org.example.utility.LedgerUtility;
+import org.example.utility.TransactionsUtility;
 import org.xrpl.xrpl4j.client.JsonRpcClientErrorException;
 import org.xrpl.xrpl4j.client.XrplClient;
 import org.xrpl.xrpl4j.crypto.keys.PrivateKey;
@@ -25,6 +26,7 @@ import org.xrpl.xrpl4j.model.transactions.*;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Scanner;
 
@@ -120,14 +122,14 @@ public class ClientService {
 
         // Check reserve balance
         XrpCurrencyAmount baseReserveInDrops = rippledServer.info().validatedLedger().get().reserveBaseXrp();
-        Long numberOfOwnedObjects = infos.accountData().ownerCount().longValue();
+        long numberOfOwnedObjects = infos.accountData().ownerCount().longValue();
 
         BigDecimal amountReserve;
         BigDecimal reserveIncrementInDrops = rippledServer.info().validatedLedger().get().reserveIncXrp().toXrp();
         if(numberOfOwnedObjects < 1){
             amountReserve = baseReserveInDrops.toXrp();
         } else {
-            // Caculate account amount reserve
+            // Calculate account amount reserve
             amountReserve = reserveIncrementInDrops
                     .multiply(BigDecimal.valueOf(numberOfOwnedObjects))
                     .add(baseReserveInDrops.toXrp());
@@ -160,24 +162,28 @@ public class ClientService {
         }
     }
 
-    public <T extends Transaction> TransactionResult<T> getTransactionResult(Hash256 txHash, Class<T> transactionType) throws InterruptedException, JsonRpcClientErrorException {
+    public <T extends Transaction> TransactionResult<T> getTransactionResult(Hash256 txHash, Class<T> transactionType)
+            throws InterruptedException, JsonRpcClientErrorException {
         return getTransactionResult(txHash, transactionType, null);
     }
 
-    public <T extends Transaction> TransactionResult<T> getTransactionResult(Hash256 txHash, Class<T> transactionType, UnsignedInteger lastLedgerSequence) throws InterruptedException, JsonRpcClientErrorException {
+    public <T extends Transaction> TransactionResult<T> getTransactionResult(Hash256 txHash, Class<T> transactionType,
+                                                                             UnsignedInteger lastLedgerSequence)
+            throws InterruptedException, JsonRpcClientErrorException {
 
         TransactionResult<T> transactionResult = null;
 
         boolean transactionValidated = false;
         boolean transactionExpired = false;
         while (!transactionValidated && !transactionExpired) {
-            Thread.sleep(4 * 1000);
+            Thread.sleep(5 * 1000);
 
             //Check return !!!
             LedgerIndex latestValidatedLedgerIndex = getLatestLedgerIndex();
 
             transactionResult = rippledClient.transaction(TransactionRequestParams.of(txHash), transactionType);
 
+            //ADD IF PRESENT TO THE GET FUNCTION UNDER
             if (transactionResult.validated()) {
                 System.out.println(transactionType.getSimpleName() + " was validated with result code "
                         + transactionResult.metadata().get().transactionResult());
@@ -201,28 +207,60 @@ public class ClientService {
         return transactionResult;
     }
 
-    public String sendPayment(AccountManager accountList) throws JsonRpcClientErrorException {
+    public String constructPayment(AccountManager accountList) throws JsonRpcClientErrorException {
         System.out.println("Choose the sender account !");
         xrplAccount selectedAccount = LedgerUtility.selectAccount(accountList.getAccounts(),
                 accountList.getNumberOfAccounts());
-
+        // CATCH ERROR WHILE FETCHING ACCOUNT NOT FOUND MAYBE JUST ON TOP OF THIS
         AccountInfoResult selectedAccountInfos = getAccountInfos(selectedAccount.getrAddress());
         Scanner scanner = new Scanner(System.in);
-        scanner.nextLine();
 
-        if(selectedAccountInfos == null){return null;}
-
-        /*if (!selectedAccountInfos.validated()) {
+        if(selectedAccountInfos == null){
+            return null;
+        }else if (!selectedAccountInfos.validated()){
             LedgerErrorMessage.printError(LedgerErrorMessage.ACCOUNT_NOT_FOUND);
-            continue;
-        }*/
+        }
+
+        Address destinationAccount = LedgerUtility.inputAddress();
+        if(destinationAccount == null){ return null;}
+
+        if(Objects.equals(destinationAccount, selectedAccount.getrAddress())){
+            System.out.println("You cannot send a payment to yourself");
+            return null;
+        }
+
+        BigDecimal accountBalance = getAccountXrpBalance(selectedAccount.getrAddress()
+                        , FunctionParameters.AVAILABLE_BALANCE);
+
+        BigDecimal amountToSend;
+        try {
+            amountToSend = TransactionsUtility.inputAmountToSend(accountBalance);
+        } catch (Exception e) {
+            //Print quelque chose
+            return null;
+        }
+
+        BigDecimal amountToSendInDrops = amountToSend.multiply(BigDecimal.valueOf(1_000_000));
+        XrpCurrencyAmount amountInDrops = XrpCurrencyAmount.ofDrops(amountToSendInDrops.longValue());
+        // Checking validity of amount to send
+        BigDecimal openLedgerFee = getClient().fee().drops().openLedgerFee().toXrp();
+        if(TransactionsUtility.isValidPaymentAmount(amountToSend, openLedgerFee, accountBalance)){
+            if(TransactionsUtility.userValidation()){
+                try {
+                    sendPayment(selectedAccount, destinationAccount, amountInDrops);
+                } catch (JsonRpcClientErrorException e) {
+                    System.out.println("Error while sending payment: " + e.getMessage());
+                    return null;
+                } catch (JsonProcessingException | InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
 
         return null;
     }
 
-    public String sendOldPayment(xrplAccount account, Address destination, XrpCurrencyAmount amount) throws JsonRpcClientErrorException, JsonProcessingException, InterruptedException {
-
-
+    public String sendPayment(xrplAccount account, Address destination, XrpCurrencyAmount amount) throws JsonRpcClientErrorException, JsonProcessingException, InterruptedException {
 
         AccountInfoResult accountInfoResult = getAccountInfos(account.getrAddress());
         UnsignedInteger sequence = accountInfoResult.accountData().sequence();
@@ -311,7 +349,7 @@ public class ClientService {
             if (transactionResult.metadata().isPresent()) {
                 TransactionMetadata metadata = transactionResult.metadata().get();
                 resultCode = metadata.transactionResult();
-                if(resultCode == "tesSUCCESS"){
+                if(Objects.equals(resultCode, "tesSUCCESS")){
                     System.out.println("Account " + destination + " was successfully deleted !");
                 } else {
                     System.out.println("Account deletion failed !");
